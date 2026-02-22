@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPS COMMAND CENTER — Google Drive</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap');
+  :root {
+    --bg:#080C10;--surface:#0D1117;--surface2:#161B22;--border:#21262D;
+    --accent:#00FF9D;--accent2:#FF4C6A;--accent3:#7B61FF;--accent4:#FFB800;
+    --text:#E6EDF3;--muted:#7D8590;--danger:#FF4C6A;--warning:#FFB800;--success:#00FF9D;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,255,157,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,157,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+  /* LOADING */
+  .loading-screen{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);gap:20px;transition:opacity .4s;}
+  .loading-screen.hidden{opacity:0;pointer-events:none;}
+  .loading-logo{font-family:'Space Mono',monospace;font-size:20px;letter-spacing:4px;color:var(--accent);}
+  .loading-bar-wrap{width:260px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .loading-bar{height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .4s ease;}
+  .loading-status{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;}
+
+  /* LAYOUT */
+  .layout{display:grid;grid-template-columns:220px 1fr;grid-template-rows:60px 1fr;min-height:100vh;position:relative;z-index:1;}
+  .topbar{grid-column:1/-1;background:rgba(13,17,23,0.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Space Mono',monospace;font-size:13px;letter-spacing:3px;color:var(--accent);font-weight:700;}
+  .logo span{color:var(--muted);}
+  .source-badge{display:flex;align-items:center;gap:6px;background:rgba(0,255,157,0.06);border:1px solid rgba(0,255,157,0.2);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--accent);font-family:'Space Mono',monospace;letter-spacing:1px;}
+  .topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+  .btn-refresh{background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;}
+  .btn-refresh:hover{border-color:var(--accent);color:var(--accent);}
+  .last-update{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;}
+  .live-badge{display:flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:10px;color:var(--success);letter-spacing:1px;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--success);animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 6px var(--success);}50%{opacity:.4;box-shadow:none;}}
+
+  /* SIDEBAR */
+  .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;}
+  .nav-section{padding:8px 16px 4px;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:8px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;transition:all .15s;border-left:3px solid transparent;font-size:13px;color:var(--muted);user-select:none;}
+  .nav-item:hover{background:var(--surface2);color:var(--text);}
+  .nav-item.active{background:rgba(0,255,157,0.08);border-left-color:var(--accent);color:var(--accent);}
+  .nav-icon{font-size:15px;width:20px;text-align:center;}
+
+  /* MAIN */
+  .main{padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:24px;}
+  .section-header{display:flex;align-items:baseline;gap:12px;margin-bottom:-8px;}
+  .section-title{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;}
+  .section-line{flex:1;height:1px;background:var(--border);}
+
+  /* KPI CARDS */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s;}
+  .kpi-card:hover{transform:translateY(-2px);border-color:var(--accent);}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--card-accent,var(--accent));}
+  .kpi-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+  .kpi-value{font-family:'Space Mono',monospace;font-size:28px;font-weight:700;color:var(--text);line-height:1;margin-bottom:10px;}
+  .kpi-change{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 8px;border-radius:20px;}
+  .kpi-change.up{background:rgba(0,255,157,.12);color:var(--success);}
+  .kpi-change.down{background:rgba(255,76,106,.12);color:var(--danger);}
+  .kpi-change.warn{background:rgba(255,184,0,.12);color:var(--warning);}
+
+  /* CHARTS */
+  .charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;}
+  .charts-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+  .chart-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+  .chart-subtitle{font-size:11px;color:var(--muted);margin-bottom:16px;}
+
+  /* TABLE */
+  .table-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .table-header{padding:16px 20px;border-bottom:1px solid var(--border);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{padding:10px 20px;text-align:left;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-weight:400;}
+  tbody tr{border-bottom:1px solid rgba(33,38,45,0.5);transition:background .12s;}
+  tbody tr:hover{background:var(--surface2);}
+  tbody tr:last-child{border-bottom:none;}
+  tbody td{padding:12px 20px;}
+  .status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .status-badge.ok{background:rgba(0,255,157,.1);color:var(--success);}
+  .status-badge.risk{background:rgba(255,184,0,.1);color:var(--warning);}
+  .status-badge.critical{background:rgba(255,76,106,.1);color:var(--danger);}
+  .status-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;width:100px;}
+  .progress-fill{height:100%;border-radius:2px;}
+
+  /* ERROR */
+  .error-box{background:rgba(255,76,106,0.06);border:1px solid rgba(255,76,106,0.3);border-radius:10px;padding:20px;color:var(--danger);font-size:13px;text-align:center;}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">OPS / COMMAND</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+  <div class="loading-status" id="loadingStatus">CONECTANDO A GOOGLE DRIVE...</div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="layout">
+  <div class="topbar">
+    <div class="logo">OPS<span>/</span>COMMAND</div>
+    <div class="source-badge">📊 Google Sheets</div>
+    <div class="topbar-right">
+      <div class="last-update" id="lastUpdate"></div>
+      <button class="btn-refresh" onclick="loadAllData()">↻ Actualizar</button>
+      <div class="live-badge"><div class="live-dot"></div>DRIVE CONECTADO</div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="nav-section">Vistas</div>
+    <div class="nav-item active" onclick="switchView('overview',this)"><span class="nav-icon">◈</span> Overview</div>
+    <div class="nav-item" onclick="switchView('procesos',this)"><span class="nav-icon">⚙</span> Procesos</div>
+    <div class="nav-item" onclick="switchView('equipo',this)"><span class="nav-icon">◉</span> Equipo</div>
+  </div>
+
+  <div class="main" id="mainContent"></div>
+</div>
+
+<script>
+// ── GOOGLE SHEETS CSV LINKS ───────────────────────────────
+const BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSHekidYI4LyFL6y1Nb9Cj0UEYRcJAr-_GhMRJZg6iQmRRncq2mNCAI_tYEapWOCQ/pub';
+const URLS = {
+  kpis:     `${BASE}?gid=1853759049&single=true&output=csv`,
+  procesos: `${BASE}?gid=431888789&single=true&output=csv`,
+  equipo:   `${BASE}?gid=1246414273&single=true&output=csv`,
+};
+
+Chart.defaults.color = '#7D8590';
+Chart.defaults.font.family = 'DM Sans';
+
+let DB = { kpis:[], procesos:[], equipo:[] };
+let charts = {};
+let currentView = 'overview';
+
+// ── CSV PARSER ────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line => {
+    // Handle quoted commas
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let ch of line) {
+      if (ch === '"') inQ = !inQ;
+      else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    cols.push(cur.trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (cols[i]||'').replace(/^"|"$/g,''));
+    return obj;
+  });
+}
+
+// ── FETCH CSV ─────────────────────────────────────────────
+async function fetchCSV(url) {
+  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxy);
+  if (!res.ok) throw new Error('Error al obtener datos');
+  return parseCSV(await res.text());
+}
+
+// ── LOAD ALL DATA ─────────────────────────────────────────
+async function loadAllData() {
+  setLoading(true);
+  try {
+    setStatus('CARGANDO KPIs...', 20);
+    const kpisRaw = await fetchCSV(URLS.kpis);
+    DB.kpis = kpisRaw.map(r => ({
+      fecha: r['Fecha'] || '',
+      eficiencia: parseFloat(r['Eficiencia (%)']) || 0,
+      tasa_error: parseFloat(r['Tasa de Error (%)']) || 0,
+      uptime: parseFloat(r['Uptime (%)']) || 0,
+      tickets: parseInt(r['Tickets Resueltos']) || 0,
+      incidencias: parseInt(r['Incidencias']) || 0,
+      produccion: parseInt(r['Producción']) || parseInt(r['Produccion']) || 0,
+    })).filter(r => r.eficiencia > 0);
+
+    setStatus('CARGANDO PROCESOS...', 55);
+    const procRaw = await fetchCSV(URLS.procesos);
+    DB.procesos = procRaw.map(r => ({
+      proceso: r['Proceso'] || '',
+      meta: parseInt(r['Meta Mensual']) || 0,
+      real: parseInt(r['Real']) || 0,
+      efic: parseFloat(r['Eficiencia (%)']) || 0,
+      estado: r['Estado'] || 'Normal',
+    })).filter(r => r.proceso);
+
+    setStatus('CARGANDO EQUIPO...', 80);
+    const eqRaw = await fetchCSV(URLS.equipo);
+    DB.equipo = eqRaw.map(r => ({
+      nombre: r['Nombre'] || '',
+      rol: r['Rol'] || '',
+      eficiencia: parseFloat(r['Eficiencia (%)']) || 0,
+      asignados: parseInt(r['Tickets Asignados']) || 0,
+      resueltos: parseInt(r['Tickets Resueltos']) || 0,
+      estado: r['Estado'] || 'Normal',
+    })).filter(r => r.nombre);
+
+    setStatus('LISTO', 100);
+    document.getElementById('lastUpdate').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX');
+
+    setTimeout(() => {
+      setLoading(false);
+      renderView();
+    }, 400);
+
+  } catch(e) {
+    setStatus('ERROR: ' + e.message, 100);
+    setTimeout(() => {
+      setLoading(false);
+      document.getElementById('mainContent').innerHTML = `
+        <div class="error-box">
+          ❌ No se pudo conectar a Google Sheets.<br><br>
+          Asegúrate de que el archivo esté publicado correctamente.<br>
+          <small style="opacity:.6;margin-top:8px;display:block">${e.message}</small>
+        </div>`;
+    }, 600);
+  }
+}
+
+function setLoading(show) {
+  document.getElementById('loadingScreen').classList.toggle('hidden', !show);
+}
+function setStatus(msg, pct) {
+  document.getElementById('loadingStatus').textContent = msg;
+  document.getElementById('loadingBar').style.width = pct + '%';
+}
+
+// ── UTILS ─────────────────────────────────────────────────
+function avg(arr, key) {
+  if (!arr.length) return 0;
+  return (arr.reduce((s,r) => s+(r[key]||0), 0) / arr.length).toFixed(1);
+}
+function sum(arr, key) { return arr.reduce((s,r) => s+(r[key]||0), 0); }
+function statusClass(s) {
+  s = (s||'').toLowerCase();
+  if (s.includes('normal')||s.includes('ok')) return 'ok';
+  if (s.includes('aten')||s.includes('risk')) return 'risk';
+  return 'critical';
+}
+function statusLabel(s) {
+  const sc = statusClass(s);
+  return sc==='ok'?'Normal':sc==='risk'?'Atención':'Crítico';
+}
+function destroyCharts() {
+  Object.values(charts).forEach(c => c&&c.destroy&&c.destroy());
+  charts = {};
+}
+function switchView(view, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  currentView = view;
+  renderView();
+}
+function renderView() {
+  destroyCharts();
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '';
+  if (currentView==='overview') renderOverview(main);
+  else if (currentView==='procesos') renderProcesos(main);
+  else if (currentView==='equipo') renderEquipo(main);
+}
+
+// ── OVERVIEW ─────────────────────────────────────────────
+function renderOverview(el) {
+  const d = DB.kpis;
+  const efic = avg(d,'eficiencia');
+  const err = avg(d,'tasa_error');
+  const uptime = avg(d,'uptime');
+  const tickets = sum(d,'tickets');
+  const labels = d.map((r,i) => r.fecha||`D${i+1}`);
+
+  el.innerHTML = `
+    <div class="section-header"><div class="section-title">KPIs Principales</div><div class="section-line"></div></div>
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--card-accent:#00FF9D">
+        <div class="kpi-label">Eficiencia Global</div>
+        <div class="kpi-value">${efic}%</div>
+        <span class="kpi-change ${efic>=90?'up':efic>=80?'warn':'down'}">${efic>=90?'↑ Óptimo':efic>=80?'▲ Aceptable':'↓ Bajo'}</span>
+      </div>
+      <div class="kpi-card" style="--card-accent:#FF4C6A">
+        <div class="kpi-label">Tasa de Error</div>
+        <div class="kpi-value">${err}%</div>
+        <span class="kpi-change ${err<1?'up':err<1.5?'warn':'down'}">${err<1?'↓ Bajo objetivo':err<1.5?'▲ Atención':'↑ Sobre límite'}</span>
+      </div>
+      <div class="kpi-card" style="--card-accent:#7B61FF">
+        <div class="kpi-label">Uptime Sistemas</div>
+        <div class="kpi-value">${uptime}%</div>
+        <span class="kpi-change up">↑ SLA cumplido</span>
+      </div>
+      <div class="kpi-card" style="--card-accent:#FFB800">
+        <div class="kpi-label">Total Tickets</div>
+        <div class="kpi-value">${tickets}</div>
+        <span class="kpi-change warn">▲ ${d.length} días</span>
+      </div>
+    </div>
+
+    <div class="section-header"><div class="section-title">Tendencias</div><div class="section-line"></div></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Eficiencia Operativa</div>
+        <div class="chart-subtitle">Datos en tiempo real desde Google Sheets</div>
+        <div style="height:220px"><canvas id="chartEfic"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Producción Diaria</div>
+        <div class="chart-subtitle">Unidades procesadas vs objetivo</div>
+        <div style="height:220px"><canvas id="chartProd"></canvas></div>
+      </div>
+    </div>
+    <div class="charts-grid-2">
+      <div class="chart-card">
+        <div class="chart-title">Tasa de Error</div>
+        <div class="chart-subtitle">% diario — línea objetivo 1.0%</div>
+        <div style="height:190px"><canvas id="chartErr"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Incidencias por Día</div>
+        <div class="chart-subtitle">Verde &lt;2 · Amarillo 2 · Rojo ≥3</div>
+        <div style="height:190px"><canvas id="chartInc"></canvas></div>
+      </div>
+    </div>`;
+
+  charts.efic = new Chart(document.getElementById('chartEfic'), {
+    type:'line',
+    data:{ labels, datasets:[{ data:d.map(r=>r.eficiencia), borderColor:'#00FF9D', backgroundColor:'rgba(0,255,157,0.08)', borderWidth:2, pointRadius:0, tension:0.4, fill:true }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{color:'rgba(33,38,45,0.8)'},ticks:{maxTicksLimit:7}}, y:{grid:{color:'rgba(33,38,45,0.8)'},min:50,max:100} } }
+  });
+
+  charts.prod = new Chart(document.getElementById('chartProd'), {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:'Real', data:d.map(r=>r.produccion), backgroundColor:'rgba(123,97,255,0.6)', borderColor:'#7B61FF', borderWidth:1, borderRadius:3 },
+      { label:'Objetivo', data:Array(d.length).fill(1200), type:'line', borderColor:'rgba(255,184,0,0.5)', borderWidth:1.5, borderDash:[4,4], pointRadius:0, fill:false }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{font:{size:11},boxWidth:10}}}, scales:{ x:{grid:{display:false},ticks:{maxTicksLimit:8}}, y:{grid:{color:'rgba(33,38,45,0.8)'}} } }
+  });
+
+  charts.err = new Chart(document.getElementById('chartErr'), {
+    type:'line',
+    data:{ labels, datasets:[
+      { data:d.map(r=>r.tasa_error), borderColor:'#FF4C6A', backgroundColor:'rgba(255,76,106,0.06)', borderWidth:2, pointRadius:0, tension:0.4, fill:true },
+      { data:Array(d.length).fill(1), borderColor:'rgba(255,184,0,0.4)', borderDash:[4,4], borderWidth:1.5, pointRadius:0, fill:false }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false},ticks:{maxTicksLimit:7}}, y:{grid:{color:'rgba(33,38,45,0.8)'}} } }
+  });
+
+  charts.inc = new Chart(document.getElementById('chartInc'), {
+    type:'bar',
+    data:{ labels, datasets:[{ data:d.map(r=>r.incidencias), backgroundColor:d.map(r=>r.incidencias>=3?'rgba(255,76,106,0.7)':r.incidencias>=2?'rgba(255,184,0,0.7)':'rgba(0,255,157,0.5)'), borderRadius:3 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false},ticks:{maxTicksLimit:8}}, y:{grid:{color:'rgba(33,38,45,0.8)'},ticks:{stepSize:1}} } }
+  });
+}
+
+// ── PROCESOS ─────────────────────────────────────────────
+function renderProcesos(el) {
+  const d = DB.procesos;
+  el.innerHTML = `
+    <div class="section-header"><div class="section-title">Estado de Procesos</div><div class="section-line"></div></div>
+    <div class="table-card">
+      <div class="table-header"><div class="chart-title">Rendimiento por Proceso</div><div class="chart-subtitle">Meta vs. Real — datos desde Google Sheets</div></div>
+      <table>
+        <thead><tr><th>Proceso</th><th>Meta</th><th>Real</th><th>Progreso</th><th>Eficiencia</th><th>Estado</th></tr></thead>
+        <tbody id="tbodyProc"></tbody>
+      </table>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Eficiencia por Proceso</div>
+      <div class="chart-subtitle">Comparativa — objetivo 100%</div>
+      <div style="height:${d.length*44+40}px"><canvas id="chartProc"></canvas></div>
+    </div>`;
+
+  const tbody = document.getElementById('tbodyProc');
+  d.forEach(p => {
+    const sc = statusClass(p.estado);
+    const c = sc==='ok'?'#00FF9D':sc==='risk'?'#FFB800':'#FF4C6A';
+    const eficVal = p.efic > 0 ? p.efic : (p.meta>0?Math.round(p.real/p.meta*1000)/10:0);
+    tbody.innerHTML += `<tr>
+      <td style="font-weight:500">${p.proceso}</td>
+      <td style="color:var(--muted);font-family:'Space Mono',monospace">${p.meta}</td>
+      <td style="font-family:'Space Mono',monospace">${p.real}</td>
+      <td><div class="progress-bar"><div class="progress-fill" style="width:${Math.min(eficVal,100)}%;background:${c}"></div></div></td>
+      <td style="font-family:'Space Mono',monospace;color:${c}">${eficVal}%</td>
+      <td><span class="status-badge ${sc}"><span class="status-dot"></span>${statusLabel(p.estado)}</span></td>
+    </tr>`;
+  });
+
+  charts.proc = new Chart(document.getElementById('chartProc'), {
+    type:'bar',
+    data:{
+      labels:d.map(p=>p.proceso),
+      datasets:[{
+        label:'Eficiencia %',
+        data:d.map(p=>p.efic>0?p.efic:(p.meta>0?Math.round(p.real/p.meta*1000)/10:0)),
+        backgroundColor:d.map(p=>{const s=statusClass(p.estado);return s==='ok'?'rgba(0,255,157,0.6)':s==='risk'?'rgba(255,184,0,0.6)':'rgba(255,76,106,0.6)';}),
+        borderRadius:4,
+      }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{grid:{color:'rgba(33,38,45,0.8)'},max:110}, y:{grid:{display:false}} } }
+  });
+}
+
+// ── EQUIPO ────────────────────────────────────────────────
+function renderEquipo(el) {
+  const d = DB.equipo;
+  el.innerHTML = `
+    <div class="section-header"><div class="section-title">Rendimiento del Equipo</div><div class="section-line"></div></div>
+    <div class="charts-grid">
+      <div class="table-card">
+        <div class="table-header"><div class="chart-title">Miembros del Equipo</div><div class="chart-subtitle">Datos en vivo desde Google Sheets</div></div>
+        <table>
+          <thead><tr><th>Miembro</th><th>Rol</th><th>Eficiencia</th><th>Asignados</th><th>Resueltos</th><th>Estado</th></tr></thead>
+          <tbody id="tbodyEq"></tbody>
+        </table>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Tickets: Asignados vs Resueltos</div>
+        <div class="chart-subtitle">Carga por miembro</div>
+        <div style="height:280px"><canvas id="chartEq"></canvas></div>
+      </div>
+    </div>`;
+
+  const tbody = document.getElementById('tbodyEq');
+  d.forEach(m => {
+    const sc = statusClass(m.estado);
+    const c = sc==='ok'?'#00FF9D':sc==='risk'?'#FFB800':'#FF4C6A';
+    tbody.innerHTML += `<tr>
+      <td style="font-weight:500">${m.nombre}</td>
+      <td style="color:var(--muted);font-size:12px">${m.rol}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(m.eficiencia,100)}%;background:${c}"></div></div>
+          <span style="font-family:'Space Mono',monospace;font-size:12px;color:${c}">${m.eficiencia}%</span>
+        </div>
+      </td>
+      <td style="font-family:'Space Mono',monospace">${m.asignados}</td>
+      <td style="font-family:'Space Mono',monospace">${m.resueltos}</td>
+      <td><span class="status-badge ${sc}"><span class="status-dot"></span>${statusLabel(m.estado)}</span></td>
+    </tr>`;
+  });
+
+  charts.eq = new Chart(document.getElementById('chartEq'), {
+    type:'bar',
+    data:{
+      labels:d.map(m=>m.nombre.split(' ')[0]),
+      datasets:[
+        { label:'Asignados', data:d.map(m=>m.asignados), backgroundColor:'rgba(123,97,255,0.5)', borderRadius:4 },
+        { label:'Resueltos', data:d.map(m=>m.resueltos), backgroundColor:'rgba(0,255,157,0.6)', borderRadius:4 },
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{font:{size:11},boxWidth:10}}}, scales:{ x:{grid:{display:false}}, y:{grid:{color:'rgba(33,38,45,0.8)'}} } }
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────
+loadAllData();
+</script>
+</body>
+</html>
