@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPS COMMAND CENTER</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #080C10;
+    --surface: #0D1117;
+    --surface2: #161B22;
+    --border: #21262D;
+    --accent: #00FF9D;
+    --accent2: #FF4C6A;
+    --accent3: #7B61FF;
+    --accent4: #FFB800;
+    --text: #E6EDF3;
+    --muted: #7D8590;
+    --danger: #FF4C6A;
+    --warning: #FFB800;
+    --success: #00FF9D;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID NOISE TEXTURE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,157,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,157,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: 60px 1fr;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    grid-column: 1 / -1;
+    background: rgba(13,17,23,0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--muted); }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--success);
+    letter-spacing: 1px;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; box-shadow: 0 0 6px var(--success); }
+    50% { opacity:.4; box-shadow: none; }
+  }
+
+  .period-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .period-select:focus { border-color: var(--accent); }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .nav-section {
+    padding: 8px 16px 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all .15s;
+    border-left: 3px solid transparent;
+    font-size: 13px;
+    color: var(--muted);
+    user-select: none;
+  }
+
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active {
+    background: rgba(0,255,157,0.08);
+    border-left-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--accent2);
+    color: white;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+
+  /* MAIN CONTENT */
+  .main {
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* SECTION HEADER */
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: -8px;
+  }
+
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* KPI CARDS */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, border-color .2s;
+    cursor: default;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-accent, var(--accent));
+  }
+
+  .kpi-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .kpi-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+
+  .kpi-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+
+  .kpi-change.up { background: rgba(0,255,157,.12); color: var(--success); }
+  .kpi-change.down { background: rgba(255,76,106,.12); color: var(--danger); }
+  .kpi-change.warn { background: rgba(255,184,0,.12); color: var(--warning); }
+
+  .kpi-sparkline {
+    position: absolute;
+    bottom: 0; right: 0;
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  /* CHARTS GRID */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+  }
+
+  .charts-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .chart-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .chart-container { position: relative; }
+
+  /* TABLE */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .table-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    padding: 10px 20px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-weight: 400;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(33,38,45,0.5);
+    transition: background .12s;
+  }
+
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody td {
+    padding: 12px 20px;
+    color: var(--text);
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .status-badge.ok { background: rgba(0,255,157,.1); color: var(--success); }
+  .status-badge.risk { background: rgba(255,184,0,.1); color: var(--warning); }
+  .status-badge.critical { background: rgba(255,76,106,.1); color: var(--danger); }
+
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* PROGRESS BAR */
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    width: 100px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all .15s;
+    font-weight: 500;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* VIEW PANELS */
+  .view-panel { display: none; }
+  .view-panel.active { display: contents; }
+
+  /* ALERT STRIP */
+  .alert-strip {
+    background: rgba(255,184,0,.06);
+    border: 1px solid rgba(255,184,0,.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--warning);
+    animation: fadeIn .3s ease;
+  }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+
+  /* MINI METRIC */
+  .mini-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .mini-metric {
+    background: var(--surface2);
+    padding: 12px 16px;
+    text-align: center;
+  }
+
+  .mini-metric-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .mini-metric-lbl {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  /* GAUGE */
+  .gauge-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .gauge-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .gauge-lbl { font-size: 11px; color: var(--muted); }
+
+  /* RANK ITEM */
+  .rank-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .rank-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .rank-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    width: 20px;
+    text-align: center;
+  }
+
+  .rank-bar-wrap { flex: 1; }
+  .rank-name { width: 110px; color: var(--text); font-size: 12px; }
+  .rank-value { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--accent); width: 50px; text-align: right; }
+
+  .rank-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .rank-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent3), var(--accent));
+  }
+
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo">OPS<span>/</span>COMMAND</div>
+    <div class="topbar-right">
+      <select class="period-select" id="periodSelect" onchange="updatePeriod(this.value)">
+        <option value="7d">Últimos 7 días</option>
+        <option value="30d" selected>Últimos 30 días</option>
+        <option value="90d">Últimos 90 días</option>
+        <option value="ytd">Year to Date</option>
+      </select>
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="nav-section">Vistas</div>
+    <div class="nav-item active" onclick="switchView('overview', this)"><span class="nav-icon">◈</span> Overview</div>
+    <div class="nav-item" onclick="switchView('produccion', this)"><span class="nav-icon">⚙</span> Producción</div>
+    <div class="nav-item" onclick="switchView('calidad', this)"><span class="nav-icon">◎</span> Calidad</div>
+    <div class="nav-item" onclick="switchView('equipo', this)"><span class="nav-icon">◉</span> Equipo <span class="nav-badge">3</span></div>
+    <div class="nav-section">Alertas</div>
+    <div class="nav-item" onclick="switchView('alertas', this)"><span class="nav-icon">▲</span> Alertas <span class="nav-badge">2</span></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" id="mainContent">
+    <!-- contenido dinámico -->
+  </div>
+
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────
+const DATA = {
+  "7d": {
+    eficiencia: 89.4, tasa_error: 1.2, uptime: 99.8, tickets: 34,
+    eficiencia_trend: [82,84,85,87,89,88,89],
+    produccion_diaria: [920,980,1050,1010,1100,1080,1150],
+    sla_labels: ['SLA < 4h','SLA < 8h','SLA > 8h'],
+    sla_data: [68, 24, 8],
+    incidencias: [2,1,3,0,1,2,1],
+  },
+  "30d": {
+    eficiencia: 91.2, tasa_error: 0.9, uptime: 99.95, tickets: 142,
+    eficiencia_trend: [84,85,83,86,88,87,90,89,91,88,90,92,91,89,93,92,94,91,90,92,93,91,95,93,92,94,93,91,92,91],
+    produccion_diaria: [900,920,880,960,1000,980,1020,1010,1050,1030,1060,1080,1070,1050,1090,1100,1080,1120,1110,1095,1130,1150,1140,1120,1160,1150,1170,1155,1180,1200],
+    sla_labels: ['SLA < 4h','SLA < 8h','SLA > 8h'],
+    sla_data: [72, 21, 7],
+    incidencias: [3,2,1,4,2,1,0,2,3,1,0,1,2,1,3,0,1,2,0,1,1,2,0,3,1,0,2,1,0,1],
+  },
+  "90d": {
+    eficiencia: 88.7, tasa_error: 1.4, uptime: 99.7, tickets: 420,
+    eficiencia_trend: Array.from({length:90}, (_,i) => 80 + Math.random()*15),
+    produccion_diaria: Array.from({length:90}, (_,i) => 850 + Math.random()*400),
+    sla_labels: ['SLA < 4h','SLA < 8h','SLA > 8h'],
+    sla_data: [65, 25, 10],
+    incidencias: Array.from({length:90}, () => Math.floor(Math.random()*5)),
+  },
+  "ytd": {
+    eficiencia: 90.1, tasa_error: 1.0, uptime: 99.9, tickets: 890,
+    eficiencia_trend: Array.from({length:60}, (_,i) => 82 + Math.random()*12),
+    produccion_diaria: Array.from({length:60}, (_,i) => 900 + Math.random()*350),
+    sla_labels: ['SLA < 4h','SLA < 8h','SLA > 8h'],
+    sla_data: [70, 22, 8],
+    incidencias: Array.from({length:60}, () => Math.floor(Math.random()*4)),
+  }
+};
+
+const EQUIPO = [
+  { nombre:'Ana Guerrero', rol:'Lead Ops', eficiencia:97.2, tickets:24, status:'ok' },
+  { nombre:'Carlos Mena', rol:'Técnico Sr', eficiencia:92.1, tickets:31, status:'ok' },
+  { nombre:'Sofía Paredes', rol:'Analista', eficiencia:85.4, tickets:18, status:'risk' },
+  { nombre:'Luis Torres', rol:'Técnico Jr', eficiencia:78.9, tickets:22, status:'risk' },
+  { nombre:'Mía Castillo', rol:'QA Lead', eficiencia:94.7, tickets:15, status:'ok' },
+  { nombre:'Rafa Vidal', rol:'Soporte', eficiencia:60.3, tickets:40, status:'critical' },
+];
+
+const PROCESOS = [
+  { proceso:'Despacho Almacén', meta:1200, real:1187, efic:98.9, status:'ok' },
+  { proceso:'Control de Calidad', meta:500, real:489, efic:97.8, status:'ok' },
+  { proceso:'Mantenimiento Prev.', meta:40, real:32, efic:80.0, status:'risk' },
+  { proceso:'Soporte Nivel 1', meta:150, real:142, efic:94.7, status:'ok' },
+  { proceso:'Auditoría Interna', meta:20, real:11, efic:55.0, status:'critical' },
+  { proceso:'Capacitación', meta:60, real:58, efic:96.7, status:'ok' },
+];
+
+let charts = {};
+let currentPeriod = '30d';
+let currentView = 'overview';
+
+// ── CHART DEFAULTS ────────────────────────────────────────
+Chart.defaults.color = '#7D8590';
+Chart.defaults.font.family = 'DM Sans';
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c && c.destroy && c.destroy());
+  charts = {};
+}
+
+// ── VIEWS ────────────────────────────────────────────────
+function switchView(view, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  currentView = view;
+  renderView();
+}
+
+function updatePeriod(val) {
+  currentPeriod = val;
+  renderView();
+}
+
+function renderView() {
+  destroyCharts();
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '';
+
+  if (currentView === 'overview') renderOverview(main);
+  else if (currentView === 'produccion') renderProduccion(main);
+  else if (currentView === 'calidad') renderCalidad(main);
+  else if (currentView === 'equipo') renderEquipo(main);
+  else if (currentView === 'alertas') renderAlertas(main);
+}
+
+// ── OVERVIEW ─────────────────────────────────────────────
+function renderOverview(el) {
+  const d = DATA[currentPeriod];
+
+  el.innerHTML = `
+    <div class="section-header"><div class="section-title">KPIs Principales</div><div class="section-line"></div></div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--card-accent:#00FF9D">
+        <div class="kpi-label">Eficiencia Global</div>
+        <div class="kpi-value">${d.eficiencia}%</div>
+        <span class="kpi-change up">↑ +2.1% vs anterior</span>
+      </div>
+      <div class="kpi-card" style="--card-accent:#FF4C6A">
+        <div class="kpi-label">Tasa de Error</div>
+        <div class="kpi-value">${d.tasa_error}%</div>
+        <span class="kpi-change ${d.tasa_error < 1.0 ? 'up' : d.tasa_error < 1.5 ? 'warn' : 'down'}">
+          ${d.tasa_error < 1.0 ? '↓ Bajo objetivo' : d.tasa_error < 1.5 ? '▲ Atención' : '↑ Sobre límite'}
+        </span>
+      </div>
+      <div class="kpi-card" style="--card-accent:#7B61FF">
+        <div class="kpi-label">Uptime Sistemas</div>
+        <div class="kpi-value">${d.uptime}%</div>
+        <span class="kpi-change up">↑ SLA cumplido</span>
+      </div>
+      <div class="kpi-card" style="--card-accent:#FFB800">
+        <div class="kpi-label">Tickets Resueltos</div>
+        <div class="kpi-value">${d.tickets}</div>
+        <span class="kpi-change warn">▲ 4 pendientes</span>
+      </div>
+    </div>
+
+    <div class="section-header"><div class="section-title">Tendencias</div><div class="section-line"></div></div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Eficiencia Operativa</div>
+        <div class="chart-subtitle">Evolución diaria del período seleccionado</div>
+        <div class="chart-container" style="height:220px">
+          <canvas id="chartEfic"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Distribución SLA</div>
+        <div class="chart-subtitle">Tickets por tiempo de resolución</div>
+        <div class="chart-container" style="height:220px">
+          <canvas id="chartSLA"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Producción Diaria</div>
+        <div class="chart-subtitle">Unidades procesadas vs objetivo (1,200)</div>
+        <div class="chart-container" style="height:200px">
+          <canvas id="chartProd"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Incidencias</div>
+        <div class="chart-subtitle">Eventos registrados por día</div>
+        <div class="chart-container" style="height:200px">
+          <canvas id="chartInc"></canvas>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const days = d.eficiencia_trend.map((_, i) => `D${i+1}`);
+
+  // Eficiencia chart
+  charts.efic = new Chart(document.getElementById('chartEfic'), {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [{
+        data: d.eficiencia_trend,
+        borderColor: '#00FF9D',
+        backgroundColor: 'rgba(0,255,157,0.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(33,38,45,0.8)' }, ticks: { maxTicksLimit: 7 } },
+        y: { grid: { color: 'rgba(33,38,45,0.8)' }, min: 60, max: 100 }
+      }
+    }
+  });
+
+  // SLA donut
+  charts.sla = new Chart(document.getElementById('chartSLA'), {
+    type: 'doughnut',
+    data: {
+      labels: d.sla_labels,
+      datasets: [{
+        data: d.sla_data,
+        backgroundColor: ['#00FF9D','#7B61FF','#FF4C6A'],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { padding: 12, font: { size: 11 }, boxWidth: 10 }
+        }
+      }
+    }
+  });
+
+  // Producción bar
+  charts.prod = new Chart(document.getElementById('chartProd'), {
+    type: 'bar',
+    data: {
+      labels: days,
+      datasets: [
+        {
+          label: 'Real',
+          data: d.produccion_diaria,
+          backgroundColor: 'rgba(123,97,255,0.6)',
+          borderColor: '#7B61FF',
+          borderWidth: 1,
+          borderRadius: 3,
+        },
+        {
+          label: 'Objetivo',
+          data: Array(d.produccion_diaria.length).fill(1200),
+          type: 'line',
+          borderColor: 'rgba(255,184,0,0.6)',
+          borderWidth: 1.5,
+          borderDash: [4,4],
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 10 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+        y: { grid: { color: 'rgba(33,38,45,0.8)' } }
+      }
+    }
+  });
+
+  // Incidencias
+  charts.inc = new Chart(document.getElementById('chartInc'), {
+    type: 'bar',
+    data: {
+      labels: days,
+      datasets: [{
+        data: d.incidencias,
+        backgroundColor: d.incidencias.map(v => v >= 3 ? 'rgba(255,76,106,0.7)' : v >= 2 ? 'rgba(255,184,0,0.7)' : 'rgba(0,255,157,0.5)'),
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+        y: { grid: { color: 'rgba(33,38,45,0.8)' }, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+
+// ── PRODUCCIÓN ────────────────────────────────────────────
+function renderProduccion(el) {
+  el.innerHTML = `
+    <div class="section-header"><div class="section-title">Estado de Procesos</div><div class="section-line"></div></div>
+
+    <div class="mini-metrics">
+      <div class="mini-metric">
+        <div class="mini-metric-val" style="color:var(--accent)">6/6</div>
+        <div class="mini-metric-lbl">Procesos Activos</div>
+      </div>
+      <div class="mini-metric">
+        <div class="mini-metric-val" style="color:var(--warning)">2</div>
+        <div class="mini-metric-lbl">Requieren Atención</div>
+      </div>
+      <div class="mini-metric">
+        <div class="mini-metric-val">87.2%</div>
+        <div class="mini-metric-lbl">Promedio Eficiencia</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header">
+        <div>
+          <div class="chart-title">Rendimiento por Proceso</div>
+          <div class="chart-subtitle">Meta vs. Real en el período</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Proceso</th>
+            <th>Meta</th>
+            <th>Real</th>
+            <th>Progreso</th>
+            <th>Eficiencia</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyProcesos"></tbody>
+      </table>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Comparativa de Eficiencia por Proceso</div>
+      <div class="chart-subtitle">Valor real vs objetivo 100%</div>
+      <div class="chart-container" style="height:220px">
+        <canvas id="chartProcesos"></canvas>
+      </div>
+    </div>
+  `;
+
+  const tbody = document.getElementById('tbodyProcesos');
+  PROCESOS.forEach(p => {
+    const color = p.status === 'ok' ? '#00FF9D' : p.status === 'risk' ? '#FFB800' : '#FF4C6A';
+    tbody.innerHTML += `
+      <tr>
+        <td style="font-weight:500">${p.proceso}</td>
+        <td style="color:var(--muted);font-family:'Space Mono',monospace">${p.meta}</td>
+        <td style="font-family:'Space Mono',monospace">${p.real}</td>
+        <td>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:${p.efic}%;background:${color}"></div>
+          </div>
+        </td>
+        <td style="font-family:'Space Mono',monospace;color:${color}">${p.efic}%</td>
+        <td><span class="status-badge ${p.status}"><span class="status-dot"></span>${p.status === 'ok' ? 'Normal' : p.status === 'risk' ? 'Atención' : 'Crítico'}</span></td>
+      </tr>`;
+  });
+
+  charts.proc = new Chart(document.getElementById('chartProcesos'), {
+    type: 'bar',
+    data: {
+      labels: PROCESOS.map(p => p.proceso),
+      datasets: [
+        {
+          label: 'Eficiencia %',
+          data: PROCESOS.map(p => p.efic),
+          backgroundColor: PROCESOS.map(p => p.status === 'ok' ? 'rgba(0,255,157,0.6)' : p.status === 'risk' ? 'rgba(255,184,0,0.6)' : 'rgba(255,76,106,0.6)'),
+          borderRadius: 4,
+        },
+        {
+          label: 'Objetivo',
+          data: Array(6).fill(100),
+          type: 'line',
+          borderColor: 'rgba(255,255,255,0.2)',
+          borderDash: [5,5],
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 10 } } },
+      scales: {
+        x: { grid: { color: 'rgba(33,38,45,0.8)' }, max: 110 },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ── CALIDAD ───────────────────────────────────────────────
+function renderCalidad(el) {
+  const d = DATA[currentPeriod];
+  el.innerHTML = `
+    <div class="section-header"><div class="section-title">Control de Calidad</div><div class="section-line"></div></div>
+
+    <div class="charts-grid-3">
+      <div class="chart-card" style="text-align:center">
+        <div class="chart-title" style="text-align:center">Tasa de Defectos</div>
+        <div class="chart-subtitle" style="text-align:center">Objetivo: < 1.0%</div>
+        <div style="padding:20px 0">
+          <div class="gauge-wrapper">
+            <canvas id="chartGauge" width="160" height="100"></canvas>
+            <div class="gauge-val" style="color:${d.tasa_error < 1 ? 'var(--success)' : d.tasa_error < 1.5 ? 'var(--warning)' : 'var(--danger)'}">${d.tasa_error}%</div>
+            <div class="gauge-lbl">${d.tasa_error < 1 ? '✓ Dentro del objetivo' : '⚠ Sobre el límite'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Distribución de Causas</div>
+        <div class="chart-subtitle">Pareto de errores detectados</div>
+        <div class="chart-container" style="height:180px">
+          <canvas id="chartPareto"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Top Procesos por Calidad</div>
+        <div class="chart-subtitle">Score de calidad (0–100)</div>
+        <div class="rank-list" style="margin-top:12px" id="rankCalidad"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Evolución de Defectos vs Producción</div>
+      <div class="chart-subtitle">Correlación temporal</div>
+      <div class="chart-container" style="height:220px">
+        <canvas id="chartDefEvol"></canvas>
+      </div>
+    </div>
+  `;
+
+  // Gauge manual con canvas 2D
+  const gCanvas = document.getElementById('chartGauge');
+  const gCtx = gCanvas.getContext('2d');
+  const cx = 80, cy = 90, r = 70;
+  const pct = Math.min(d.tasa_error / 3, 1);
+  const startAngle = Math.PI;
+  const endAngle = 2 * Math.PI;
+  const valAngle = startAngle + pct * Math.PI;
+  const color = d.tasa_error < 1 ? '#00FF9D' : d.tasa_error < 1.5 ? '#FFB800' : '#FF4C6A';
+
+  gCtx.beginPath();
+  gCtx.arc(cx, cy, r, startAngle, endAngle);
+  gCtx.strokeStyle = '#21262D';
+  gCtx.lineWidth = 12;
+  gCtx.stroke();
+
+  gCtx.beginPath();
+  gCtx.arc(cx, cy, r, startAngle, valAngle);
+  gCtx.strokeStyle = color;
+  gCtx.lineWidth = 12;
+  gCtx.lineCap = 'round';
+  gCtx.shadowBlur = 12;
+  gCtx.shadowColor = color;
+  gCtx.stroke();
+
+  // Pareto
+  charts.pareto = new Chart(document.getElementById('chartPareto'), {
+    type: 'bar',
+    data: {
+      labels: ['Proceso', 'Material', 'Humano', 'Equipo', 'Otros'],
+      datasets: [{
+        data: [35, 28, 18, 12, 7],
+        backgroundColor: ['#FF4C6A','#FFB800','#7B61FF','#00FF9D','#7D8590'].map(c => c+'aa'),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { grid: { color: 'rgba(33,38,45,0.8)' } }
+      }
+    }
+  });
+
+  // Rank
+  const scores = [
+    { name: 'Control Calidad', val: 97 },
+    { name: 'Despacho', val: 94 },
+    { name: 'Soporte N1', val: 91 },
+    { name: 'Capacitación', val: 88 },
+    { name: 'Mantenimiento', val: 72 },
+  ];
+  const rankEl = document.getElementById('rankCalidad');
+  scores.forEach((s, i) => {
+    rankEl.innerHTML += `
+      <div class="rank-item">
+        <div class="rank-num">${i+1}</div>
+        <div class="rank-bar-wrap">
+          <div class="rank-name">${s.name}</div>
+          <div class="rank-bar"><div class="rank-fill" style="width:${s.val}%"></div></div>
+        </div>
+        <div class="rank-value">${s.val}</div>
+      </div>`;
+  });
+
+  // Evolución defectos
+  const days = d.eficiencia_trend.map((_,i) => `D${i+1}`);
+  charts.defEvol = new Chart(document.getElementById('chartDefEvol'), {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [
+        {
+          label: 'Defectos (%)',
+          data: d.eficiencia_trend.map(() => (Math.random() * 2.5 + 0.3).toFixed(2)),
+          borderColor: '#FF4C6A',
+          backgroundColor: 'rgba(255,76,106,0.06)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.4,
+          fill: true,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Producción',
+          data: d.produccion_diaria,
+          borderColor: '#7B61FF',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.4,
+          fill: false,
+          yAxisID: 'y1',
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 10 } } },
+      scales: {
+        x: { grid: { color: 'rgba(33,38,45,0.8)' }, ticks: { maxTicksLimit: 8 } },
+        y: { grid: { color: 'rgba(33,38,45,0.4)' }, position: 'left', title: { display: true, text: 'Defectos %' } },
+        y1: { grid: { display: false }, position: 'right', title: { display: true, text: 'Producción' } }
+      }
+    }
+  });
+}
+
+// ── EQUIPO ────────────────────────────────────────────────
+function renderEquipo(el) {
+  el.innerHTML = `
+    <div class="section-header"><div class="section-title">Rendimiento del Equipo</div><div class="section-line"></div></div>
+
+    <div class="charts-grid">
+      <div class="table-card">
+        <div class="table-header">
+          <div>
+            <div class="chart-title">Miembros del Equipo</div>
+            <div class="chart-subtitle">Eficiencia individual y carga de trabajo</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Miembro</th>
+              <th>Rol</th>
+              <th>Eficiencia</th>
+              <th>Tickets</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyEquipo"></tbody>
+        </table>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">Distribución de Carga</div>
+        <div class="chart-subtitle">Tickets por miembro</div>
+        <div class="chart-container" style="height:260px">
+          <canvas id="chartEquipo"></canvas>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const tbody = document.getElementById('tbodyEquipo');
+  EQUIPO.forEach(m => {
+    const c = m.status === 'ok' ? '#00FF9D' : m.status === 'risk' ? '#FFB800' : '#FF4C6A';
+    tbody.innerHTML += `
+      <tr>
+        <td style="font-weight:500">${m.nombre}</td>
+        <td style="color:var(--muted);font-size:12px">${m.rol}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="progress-bar"><div class="progress-fill" style="width:${m.eficiencia}%;background:${c}"></div></div>
+            <span style="font-family:'Space Mono',monospace;font-size:12px;color:${c}">${m.eficiencia}%</span>
+          </div>
+        </td>
+        <td style="font-family:'Space Mono',monospace">${m.tickets}</td>
+        <td><span class="status-badge ${m.status}"><span class="status-dot"></span>${m.status === 'ok' ? 'Normal' : m.status === 'risk' ? 'Atención' : 'Crítico'}</span></td>
+      </tr>`;
+  });
+
+  charts.equipo = new Chart(document.getElementById('chartEquipo'), {
+    type: 'radar',
+    data: {
+      labels: EQUIPO.map(m => m.nombre.split(' ')[0]),
+      datasets: [{
+        label: 'Eficiencia',
+        data: EQUIPO.map(m => m.eficiencia),
+        borderColor: '#00FF9D',
+        backgroundColor: 'rgba(0,255,157,0.1)',
+        borderWidth: 2,
+        pointBackgroundColor: '#00FF9D',
+        pointRadius: 4,
+      },{
+        label: 'Tickets (×2.5)',
+        data: EQUIPO.map(m => m.tickets * 2.5),
+        borderColor: '#7B61FF',
+        backgroundColor: 'rgba(123,97,255,0.1)',
+        borderWidth: 2,
+        pointBackgroundColor: '#7B61FF',
+        pointRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        r: {
+          grid: { color: 'rgba(33,38,45,0.8)' },
+          pointLabels: { font: { size: 11 } },
+          beginAtZero: true,
+          max: 100,
+        }
+      },
+      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 10 } } }
+    }
+  });
+}
+
+// ── ALERTAS ───────────────────────────────────────────────
+function renderAlertas(el) {
+  el.innerHTML = `
+    <div class="section-header"><div class="section-title">Centro de Alertas</div><div class="section-line"></div></div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="alert-strip" style="border-color:rgba(255,76,106,.3);background:rgba(255,76,106,.06);color:var(--danger)">
+        <span style="font-size:18px">🔴</span>
+        <div>
+          <div style="font-weight:600;margin-bottom:2px">CRÍTICO — Auditoría Interna al 55% de cumplimiento</div>
+          <div style="font-size:12px;opacity:.7">Proceso atrasado 9 unidades respecto a meta mensual. Requiere acción inmediata.</div>
+        </div>
+        <div style="margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;opacity:.6">hace 2h</div>
+      </div>
+
+      <div class="alert-strip">
+        <span style="font-size:18px">🟡</span>
+        <div>
+          <div style="font-weight:600;margin-bottom:2px">ATENCIÓN — Rafa Vidal con eficiencia del 60.3%</div>
+          <div style="font-size:12px;opacity:.7">Miembro del equipo con rendimiento por debajo del mínimo aceptable (70%). Se sugiere revisión.</div>
+        </div>
+        <div style="margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;opacity:.6">hace 5h</div>
+      </div>
+
+      <div class="alert-strip" style="border-color:rgba(255,184,0,.15);background:rgba(255,184,0,.03);color:var(--warning);opacity:.6">
+        <span style="font-size:18px">🟡</span>
+        <div>
+          <div style="font-weight:600;margin-bottom:2px">ATENCIÓN — Mantenimiento Preventivo al 80%</div>
+          <div style="font-size:12px;opacity:.7">8 órdenes de mantenimiento pendientes de ejecutar en el período.</div>
+        </div>
+        <div style="margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;opacity:.6">ayer</div>
+      </div>
+
+      <div class="alert-strip" style="border-color:rgba(0,255,157,.15);background:rgba(0,255,157,.03);color:var(--success);opacity:.5">
+        <span style="font-size:18px">🟢</span>
+        <div>
+          <div style="font-weight:600;margin-bottom:2px">RESUELTO — Caída de sistema S-04 restaurada</div>
+          <div style="font-size:12px;opacity:.7">Incidencia de uptime resuelta. Tiempo de recuperación: 12 min. SLA cumplido.</div>
+        </div>
+        <div style="margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;opacity:.6">hace 2 días</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin-top:8px"><div class="section-title">Historial de Incidencias</div><div class="section-line"></div></div>
+
+    <div class="chart-card">
+      <div class="chart-title">Incidencias por Categoría</div>
+      <div class="chart-subtitle">Últimos 30 días</div>
+      <div class="chart-container" style="height:220px">
+        <canvas id="chartAlertHist"></canvas>
+      </div>
+    </div>
+  `;
+
+  charts.alertHist = new Chart(document.getElementById('chartAlertHist'), {
+    type: 'bar',
+    data: {
+      labels: ['Semana 1','Semana 2','Semana 3','Semana 4'],
+      datasets: [
+        { label: 'Crítico', data: [1,0,1,1], backgroundColor: 'rgba(255,76,106,0.7)', borderRadius: 4 },
+        { label: 'Atención', data: [3,2,4,2], backgroundColor: 'rgba(255,184,0,0.7)', borderRadius: 4 },
+        { label: 'Informativo', data: [5,4,3,6], backgroundColor: 'rgba(123,97,255,0.5)', borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 10 } } },
+      scales: {
+        x: { grid: { display: false }, stacked: true },
+        y: { grid: { color: 'rgba(33,38,45,0.8)' }, stacked: true }
+      }
+    }
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────
+renderView();
+</script>
+</body>
+</html>
