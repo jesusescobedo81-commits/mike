@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IJAT — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:   #f4f7fb;
+  --bg2:  #ffffff;
+  --bg3:  #eaf1f9;
+  --border:  rgba(24,95,165,0.10);
+  --border2: rgba(24,95,165,0.20);
+  --tj:     #1a5fa8;
+  --tj-dim: rgba(26,95,168,0.08);
+  --tj-mid: rgba(26,95,168,0.35);
+  --sd:     #0e9f6e;
+  --sd-dim: rgba(14,159,110,0.09);
+  --sd-mid: rgba(14,159,110,0.35);
+  --red:    #c0362c;
+  --text:   #0f1f35;
+  --text2:  #3a5272;
+  --text3:  #7a96b8;
+  --font-d: 'Syne', sans-serif;
+  --font-m: 'DM Mono', monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-m);font-size:14px;min-height:100vh;}
+
+.topbar{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--border2);padding:.68rem 1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
+.logo{font-family:var(--font-d);font-weight:800;font-size:1rem;letter-spacing:-.02em;color:var(--text);white-space:nowrap;}
+.logo em{font-style:normal;color:var(--tj);}
+.nav{display:flex;gap:.35rem;flex-wrap:wrap;margin-left:auto;}
+.btn{font-family:var(--font-m);font-size:.66rem;letter-spacing:.07em;text-transform:uppercase;padding:.36rem .85rem;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .18s;white-space:nowrap;}
+.btn:hover{background:var(--bg3);color:var(--tj);border-color:var(--tj-mid);}
+.btn.active{background:var(--tj);color:#fff;border-color:var(--tj);}
+
+.main{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem;}
+.panel{display:none;}
+.panel.active{display:block;animation:fadeUp .32s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+.s-label{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:.35rem;}
+.s-title{font-family:var(--font-d);font-size:1.45rem;font-weight:800;color:var(--text);margin-bottom:.35rem;line-height:1.1;}
+.s-desc{color:var(--text2);font-size:.81rem;margin-bottom:1.5rem;max-width:560px;line-height:1.6;}
+
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.4rem;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;}
+
+.score-hero{display:grid;grid-template-columns:1fr 80px 1fr;gap:1rem;align-items:center;margin-bottom:1rem;}
+.score-card{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.6rem;text-align:center;}
+.score-card.tj{border-top:3px solid var(--tj);}
+.score-card.sd{border-top:3px solid var(--sd);}
+.city-name{font-family:var(--font-d);font-size:.83rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.8rem;}
+.city-name.tj{color:var(--tj);}
+.city-name.sd{color:var(--sd);}
+.score-num{font-family:var(--font-d);font-size:3rem;font-weight:800;line-height:1;}
+.score-num.tj{color:var(--tj);}
+.score-num.sd{color:var(--sd);}
+.score-badge{display:inline-block;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;padding:.27rem .7rem;border-radius:20px;margin:.5rem 0 .3rem;}
+.score-badge.injusticia{background:rgba(192,54,44,.09);color:#9a2a22;border:1px solid rgba(192,54,44,.22);}
+.score-badge.alta{background:var(--sd-dim);color:#0a7a55;border:1px solid var(--sd-mid);}
+.score-sub{font-size:.68rem;color:var(--text3);}
+.gap-box{text-align:center;padding:.4rem;}
+.gap-num{font-family:var(--font-d);font-size:1.8rem;font-weight:800;color:var(--text2);}
+.gap-lbl{font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;}
+
+.scale-wrap{margin-bottom:1rem;}
+.scale-bar{height:8px;border-radius:4px;background:linear-gradient(90deg,#c0362c 0%,#c0362c 39%,#d97222 39%,#d97222 59%,#c09a18 59%,#c09a18 79%,#0e9f6e 79%,#0e9f6e 100%);position:relative;margin:.6rem 0 .4rem;}
+.scale-bar .marker{position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;border:2.5px solid white;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 1.5px rgba(0,0,0,.12);}
+.scale-bar .marker.tj{border-color:var(--tj);left:30%;}
+.scale-bar .marker.sd{border-color:var(--sd);left:80%;}
+.scale-ticks{display:flex;justify-content:space-between;font-size:.6rem;color:var(--text3);}
+
+.scale-item{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:.72rem .9rem;}
+.scale-item.injusticia{border-left:3px solid #c0362c;}
+.scale-item.baja{border-left:3px solid #d97222;}
+.scale-item.moderada{border-left:3px solid #c09a18;}
+.scale-item.alta{border-left:3px solid var(--sd);}
+.scale-range{font-size:.6rem;margin-bottom:.2rem;}
+.scale-item.injusticia .scale-range{color:#9a2a22;}
+.scale-item.baja .scale-range{color:#9a510e;}
+.scale-item.moderada .scale-range{color:#8a6e0a;}
+.scale-item.alta .scale-range{color:#0a7a55;}
+.scale-name{font-family:var(--font-d);font-size:.76rem;font-weight:700;}
+.scale-item.injusticia .scale-name{color:#9a2a22;}
+.scale-item.baja .scale-name{color:#9a510e;}
+.scale-item.moderada .scale-name{color:#8a6e0a;}
+.scale-item.alta .scale-name{color:#0a7a55;}
+
+.dim-title{font-family:var(--font-d);font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:.3rem;}
+.dim-desc{font-size:.71rem;color:var(--text2);margin-bottom:.9rem;line-height:1.5;}
+.duo-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;}
+.duo-city{font-size:.63rem;text-transform:uppercase;min-width:20px;font-weight:700;}
+.duo-city.tj{color:var(--tj);}
+.duo-city.sd{color:var(--sd);}
+.bar-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;width:0;transition:width 1s cubic-bezier(.4,0,.2,1);}
+.bar-fill.tj{background:var(--tj);}
+.bar-fill.sd{background:var(--sd);}
+.duo-val{font-size:.71rem;min-width:28px;text-align:right;}
+.duo-val.tj{color:var(--tj);}
+.duo-val.sd{color:var(--sd);}
+.dim-foot{border-top:1px solid var(--border);margin-top:.8rem;padding-top:.65rem;display:flex;justify-content:space-between;font-size:.68rem;color:var(--text3);}
+
+.chart-box{position:relative;height:200px;margin-top:.8rem;}
+.chart-title{font-family:var(--font-d);font-size:.86rem;font-weight:700;color:var(--text);margin-bottom:.15rem;}
+.chart-sub{font-size:.69rem;color:var(--text2);margin-bottom:.5rem;}
+
+.h-label{font-size:.71rem;color:var(--text2);margin-bottom:.6rem;line-height:1.5;}
+.h-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;}
+.h-tag{font-size:.57rem;text-transform:uppercase;padding:.17rem .35rem;border-radius:3px;min-width:23px;text-align:center;}
+.h-tag.tj{background:var(--tj-dim);color:var(--tj);}
+.h-tag.sd{background:var(--sd-dim);color:#0a7a55;}
+.h-bar-t{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.h-bar-f{height:100%;border-radius:3px;}
+.h-bar-f.tj{background:var(--tj);}
+.h-bar-f.sd{background:var(--sd);}
+.h-val{font-size:.69rem;min-width:44px;text-align:right;}
+.h-val.tj{color:var(--tj);}
+.h-val.sd{color:#0a7a55;}
+
+.inst-table{width:100%;border-collapse:collapse;font-size:.79rem;}
+.inst-table th{font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);padding:.5rem .8rem;border-bottom:1px solid var(--border2);text-align:left;}
+.inst-table th.tj{color:var(--tj);}
+.inst-table th.sd{color:var(--sd);}
+.inst-table td{padding:.58rem .8rem;border-bottom:1px solid var(--border);color:var(--text2);}
+.inst-table tr:last-child td{border:none;}
+.inst-table .tj-val{color:var(--tj);font-weight:500;}
+.inst-table .sd-val{color:#0a7a55;font-weight:500;}
+
+.g-table{width:100%;border-collapse:collapse;font-size:.79rem;}
+.g-table th{font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);padding:.43rem .7rem;border-bottom:1px solid var(--border2);text-align:left;}
+.g-table td{padding:.53rem .7rem;border-bottom:1px solid var(--border);color:var(--text2);}
+.g-table tr:last-child td{border:none;}
+.badge-pos{background:rgba(192,54,44,.09);color:#9a2a22;border-radius:4px;padding:.11rem .38rem;}
+.badge-neg{background:var(--sd-dim);color:#0a7a55;border-radius:4px;padding:.11rem .38rem;}
+
+.formula{background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:1rem 1.4rem;text-align:center;color:var(--text2);margin:.8rem 0;}
+.formula strong{color:var(--text);font-size:.93rem;}
+
+.step-card{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:1rem;}
+.step-num{font-family:var(--font-d);font-size:1.5rem;font-weight:800;color:rgba(26,95,168,.18);line-height:1;margin-bottom:.3rem;}
+.step-name{font-family:var(--font-d);font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:.3rem;}
+.step-desc{font-size:.7rem;color:var(--text2);line-height:1.5;}
+
+.conclu-card{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:1.15rem;}
+.conclu-card.tj{border-left:3px solid var(--tj);}
+.conclu-card.sd{border-left:3px solid var(--sd);}
+.conclu-head{font-size:.6rem;text-transform:uppercase;letter-spacing:.09em;margin-bottom:.5rem;}
+.conclu-head.tj{color:var(--tj);}
+.conclu-head.sd{color:#0a7a55;}
+.conclu-body{font-size:.79rem;color:var(--text2);line-height:1.7;}
+
+.stat-big{font-family:var(--font-d);font-size:1.6rem;font-weight:800;line-height:1;}
+.stat-big.tj{color:var(--tj);}
+.stat-big.sd{color:var(--sd);}
+.stat-unit{font-size:.64rem;color:var(--text3);margin-top:.2rem;}
+
+.mt1{margin-top:1rem;}
+.mt15{margin-top:1.5rem;}
+
+.foot{border-top:1px solid var(--border2);padding-top:1.2rem;margin-top:2.5rem;font-size:.64rem;color:var(--text3);display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+
+@media(max-width:680px){
+  .grid2,.score-hero{grid-template-columns:1fr;}
+  .grid3{grid-template-columns:1fr;}
+  .grid4{grid-template-columns:1fr 1fr;}
+  .score-hero .gap-box{display:flex;gap:1rem;align-items:center;justify-content:center;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">IJAT · Justicia Ambiental <em>Transfronteriza</em></div>
+  <nav class="nav">
+    <button class="btn active" onclick="show('puntajes',this)">Puntajes</button>
+    <button class="btn" onclick="show('dimensiones',this)">Dimensiones</button>
+    <button class="btn" onclick="show('pm25',this)">PM₂.₅</button>
+    <button class="btn" onclick="show('salud',this)">Salud</button>
+    <button class="btn" onclick="show('institucional',this)">Institucional</button>
+    <button class="btn" onclick="show('metodologia',this)">Metodología</button>
+  </nav>
+</div>
+
+<div class="main">
+
+<!-- 01 PUNTAJES -->
+<div class="panel active" id="panel-puntajes">
+  <div class="s-label">01 · Resultados principales</div>
+  <div class="s-title">Puntajes finales del IJAT</div>
+  <div class="s-desc">Escala 0–1 donde 1 representa justicia ambiental óptima. Ponderación equitativa entre las tres dimensiones (33.3% cada una).</div>
+
+  <div class="score-hero">
+    <div class="score-card tj">
+      <div class="city-name tj">🇲🇽 Tijuana</div>
+      <div class="score-num tj">0.30</div>
+      <div><span class="score-badge injusticia">Injusticia Ambiental</span></div>
+      <div class="score-sub">Rango: 0.00 – 0.39</div>
+    </div>
+    <div class="gap-box">
+      <div class="gap-lbl">Brecha</div>
+      <div class="gap-num">0.50</div>
+      <div class="gap-lbl">puntos</div>
+    </div>
+    <div class="score-card sd">
+      <div class="city-name sd">🇺🇸 San Diego</div>
+      <div class="score-num sd">0.80</div>
+      <div><span class="score-badge alta">Alta Justicia Ambiental</span></div>
+      <div class="score-sub">Rango: 0.80 – 1.00</div>
+    </div>
+  </div>
+
+  <div class="card scale-wrap">
+    <div style="font-size:.6rem;color:var(--text3);margin-bottom:.4rem;letter-spacing:.1em;text-transform:uppercase;">Escala de interpretación del IJAT</div>
+    <div class="scale-bar">
+      <div class="marker tj"></div>
+      <div class="marker sd"></div>
+    </div>
+    <div class="scale-ticks"><span>0.00</span><span>0.40</span><span>0.60</span><span>0.80</span><span>1.00</span></div>
+  </div>
+
+  <div class="grid4 mt1">
+    <div class="scale-item injusticia"><div class="scale-range">0.00 – 0.39</div><div class="scale-name">Injusticia Ambiental</div></div>
+    <div class="scale-item baja"><div class="scale-range">0.40 – 0.59</div><div class="scale-name">Baja Justicia</div></div>
+    <div class="scale-item moderada"><div class="scale-range">0.60 – 0.79</div><div class="scale-name">Justicia Moderada</div></div>
+    <div class="scale-item alta"><div class="scale-range">0.80 – 1.00</div><div class="scale-name">Alta Justicia</div></div>
+  </div>
+
+  <div class="grid2 mt15">
+    <div class="conclu-card tj">
+      <div class="conclu-head tj">Tijuana · IJAT 0.30</div>
+      <div class="conclu-body">La mayor desventaja se concentra en capacidad institucional (D3=0.18). Promedio de PM₂.₅: 24 µg/m³ — supera 100% la NOM-025 y 380% la meta OMS.</div>
+    </div>
+    <div class="conclu-card sd">
+      <div class="conclu-head sd">San Diego · IJAT 0.80</div>
+      <div class="conclu-body">Reducción gradual y sostenida de PM₂.₅ a lo largo del periodo. Mayor capacidad tecnológica, regulatoria y presupuestal actúa como amortiguador.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 02 DIMENSIONES -->
+<div class="panel" id="panel-dimensiones">
+  <div class="s-label">02 · Desagregación dimensional</div>
+  <div class="s-title">Las tres dimensiones del índice</div>
+  <div class="s-desc">Cada dimensión recibe un peso de 33.3% en la versión base. Los indicadores internos se normalizan en escala 0–1.</div>
+
+  <div class="grid3">
+    <div class="card">
+      <div style="font-size:1.2rem;margin-bottom:.45rem;">🌫️</div>
+      <div class="dim-title">D1 · Exposición a contaminación</div>
+      <div class="dim-desc">Nivel de PM₂.₅ y frecuencia de días con mala calidad del aire (AQI &gt; 100).</div>
+      <div class="duo-row"><span class="duo-city tj">TJ</span><div class="bar-track"><div class="bar-fill tj" data-w="32%"></div></div><span class="duo-val tj">0.32</span></div>
+      <div class="duo-row"><span class="duo-city sd">SD</span><div class="bar-track"><div class="bar-fill sd" data-w="88%"></div></div><span class="duo-val sd">0.88</span></div>
+      <div class="dim-foot"><span>PM₂.₅ prom.</span><span><span style="color:var(--tj)">24.0</span> vs <span style="color:var(--sd)">8.8</span> µg/m³</span></div>
+    </div>
+    <div class="card">
+      <div style="font-size:1.2rem;margin-bottom:.45rem;">🏘️</div>
+      <div class="dim-title">D2 · Vulnerabilidad Social</div>
+      <div class="dim-desc">Condiciones sociosanitarias: pobreza, cobertura médica, mortalidad respiratoria.</div>
+      <div class="duo-row"><span class="duo-city tj">TJ</span><div class="bar-track"><div class="bar-fill tj" data-w="42%"></div></div><span class="duo-val tj">0.42</span></div>
+      <div class="duo-row"><span class="duo-city sd">SD</span><div class="bar-track"><div class="bar-fill sd" data-w="82%"></div></div><span class="duo-val sd">0.82</span></div>
+      <div class="dim-foot"><span>Sin cobertura médica</span><span><span style="color:var(--tj)">31%</span> vs <span style="color:var(--sd)">8%</span></span></div>
+    </div>
+    <div class="card">
+      <div style="font-size:1.2rem;margin-bottom:.45rem;">🏛️</div>
+      <div class="dim-title">D3 · Capacidad Institucional</div>
+      <div class="dim-desc">Presupuesto ambiental, red de monitoreo, políticas activas y mecanismos de sanción.</div>
+      <div class="duo-row"><span class="duo-city tj">TJ</span><div class="bar-track"><div class="bar-fill tj" data-w="18%"></div></div><span class="duo-val tj">0.18</span></div>
+      <div class="duo-row"><span class="duo-city sd">SD</span><div class="bar-track"><div class="bar-fill sd" data-w="71%"></div></div><span class="duo-val sd">0.71</span></div>
+      <div class="dim-foot"><span>Presupuesto per cápita</span><span><span style="color:var(--tj)">$2.60</span> vs <span style="color:var(--sd)">$48 USD</span></span></div>
+    </div>
+  </div>
+
+  <div class="card mt15">
+    <div class="chart-title">Comparativo por dimensión — Radar</div>
+    <div class="chart-sub">Escala 0–1 · D1 Exposición · D2 Vulnerabilidad Social · D3 Cap. Institucional</div>
+    <div class="chart-box"><canvas id="radarChart"></canvas></div>
+  </div>
+</div>
+
+<!-- 03 PM2.5 -->
+<div class="panel" id="panel-pm25">
+  <div class="s-label">03 · Datos ambientales</div>
+  <div class="s-title">Contaminación por PM₂.₅ (2022–2025)</div>
+  <div class="s-desc">Panel binacional diario construido a partir de estaciones homologadas con cobertura simultánea de toda la red.</div>
+
+  <div class="grid2">
+    <div class="card" style="text-align:center;background:#e8f3fd;border-color:rgba(26,95,168,.2);">
+      <div style="font-size:.6rem;color:var(--tj);text-transform:uppercase;letter-spacing:.09em;margin-bottom:.4rem;">⚠ Tijuana · Promedio multianual</div>
+      <div class="stat-big tj">24.0 µg/m³</div>
+      <div class="stat-unit">Supera 100% la NOM-025 (12 µg/m³) y 380% la meta OMS (5 µg/m³)</div>
+    </div>
+    <div class="card" style="text-align:center;background:#e6f7f1;border-color:rgba(14,159,110,.2);">
+      <div style="font-size:.6rem;color:var(--sd);text-transform:uppercase;letter-spacing:.09em;margin-bottom:.4rem;">✓ San Diego · Promedio multianual</div>
+      <div class="stat-big sd">8.8 µg/m³</div>
+      <div class="stat-unit">Por debajo del estándar EPA (12 µg/m³); reducción gradual sostenida</div>
+    </div>
+  </div>
+
+  <div class="grid2 mt15">
+    <div class="card">
+      <div class="chart-title">Promedio anual de PM₂.₅</div>
+      <div class="chart-sub">µg/m³ · Límite OMS: 5 · NOM-025 / EPA: 12</div>
+      <div class="chart-box"><canvas id="pm25Chart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="chart-title">Crecimiento interanual</div>
+      <div class="chart-sub">Variación % respecto al año anterior</div>
+      <div class="chart-box"><canvas id="growthChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card mt15">
+    <div class="chart-title" style="margin-bottom:.8rem;">Tasas de crecimiento interanual (gₛₜ)</div>
+    <table class="g-table">
+      <thead><tr><th>Intervalo</th><th>Tijuana</th><th>San Diego</th><th>Interpretación</th></tr></thead>
+      <tbody>
+        <tr><td>2022 → 2023</td><td><span class="badge-neg">−19.5%</span></td><td><span class="badge-neg">−1.8%</span></td><td>Ambas ciudades mejoran; TJ con descenso marcado</td></tr>
+        <tr><td>2023 → 2024</td><td><span class="badge-neg">−19.3%</span></td><td><span class="badge-neg">−4.7%</span></td><td>Tendencia continúa; no responde a cambio estructural</td></tr>
+        <tr><td>2024 → 2025</td><td><span class="badge-pos">+9.9%</span></td><td><span class="badge-neg">−2.1%</span></td><td>TJ revierte la mejora; SD mantiene reducción estable</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 04 SALUD -->
+<div class="panel" id="panel-salud">
+  <div class="s-label">04 · Consecuencias sanitarias</div>
+  <div class="s-title">Impacto en salud pública</div>
+  <div class="s-desc">La mayor carga de contaminación en Tijuana se traduce en indicadores sistemáticamente más desfavorables en todos los rubros.</div>
+
+  <div class="grid3">
+    <div class="card">
+      <div class="h-label">Muertes prematuras atribuibles a PM₂.₅ (estimado anual)</div>
+      <div class="h-row"><span class="h-tag tj">TJ</span><div class="h-bar-t"><div class="h-bar-f tj" style="width:100%;"></div></div><span class="h-val tj">870</span></div>
+      <div class="h-row"><span class="h-tag sd">SD</span><div class="h-bar-t"><div class="h-bar-f sd" style="width:49%;"></div></div><span class="h-val sd">430</span></div>
+      <div style="font-size:.62rem;color:var(--text3);margin-top:.5rem;">Fuente: OMS, IHME, CDC</div>
+    </div>
+    <div class="card">
+      <div class="h-label">Mortalidad por enfermedades respiratorias (por 100,000 hab.)</div>
+      <div class="h-row"><span class="h-tag tj">TJ</span><div class="h-bar-t"><div class="h-bar-f tj" style="width:100%;"></div></div><span class="h-val tj">34.1</span></div>
+      <div class="h-row"><span class="h-tag sd">SD</span><div class="h-bar-t"><div class="h-bar-f sd" style="width:55%;"></div></div><span class="h-val sd">18.7</span></div>
+      <div style="font-size:.62rem;color:var(--text3);margin-top:.5rem;">Fuente: Sec. Salud BC, CDC</div>
+    </div>
+    <div class="card">
+      <div class="h-label">Hospitalizaciones por asma infantil (por 100,000 hab.)</div>
+      <div class="h-row"><span class="h-tag tj">TJ</span><div class="h-bar-t"><div class="h-bar-f tj" style="width:100%;"></div></div><span class="h-val tj">122</span></div>
+      <div class="h-row"><span class="h-tag sd">SD</span><div class="h-bar-t"><div class="h-bar-f sd" style="width:46%;"></div></div><span class="h-val sd">56</span></div>
+      <div style="font-size:.62rem;color:var(--text3);margin-top:.5rem;">Fuente: SSA, California Health Dept.</div>
+    </div>
+  </div>
+
+  <div class="card mt15">
+    <div class="chart-title">Comparativo de indicadores de salud</div>
+    <div class="chart-sub">Valores normalizados al máximo de cada categoría</div>
+    <div class="chart-box"><canvas id="healthChart"></canvas></div>
+  </div>
+</div>
+
+<!-- 05 INSTITUCIONAL -->
+<div class="panel" id="panel-institucional">
+  <div class="s-label">05 · Dimensión 3</div>
+  <div class="s-title">Asimetrías en capacidad institucional</div>
+  <div class="s-desc">La dimensión con mayor brecha en el IJAT (TJ: 0.18 vs SD: 0.71). El déficit de monitoreo hace invisible la injusticia ambiental donde es más grave.</div>
+
+  <div class="card">
+    <table class="inst-table">
+      <thead><tr><th>Indicador</th><th class="tj">🇲🇽 Tijuana</th><th class="sd">🇺🇸 San Diego</th></tr></thead>
+      <tbody>
+        <tr><td>Presupuesto ambiental per cápita (USD, 2023)</td><td class="tj-val">$2.60</td><td class="sd-val">$48.00</td></tr>
+        <tr><td>Estaciones activas de monitoreo PM₂.₅</td><td class="tj-val">6 (mixtas)</td><td class="sd-val">15 (automáticas)</td></tr>
+        <tr><td>Tecnología de monitoreo</td><td class="tj-val">Manual / Semiautomática</td><td class="sd-val">Automática · tiempo real</td></tr>
+        <tr><td>Cobertura espacial</td><td class="tj-val">2 zonas urbanas</td><td class="sd-val">Cobertura regional</td></tr>
+        <tr><td>Políticas ambientales activas</td><td class="tj-val">3</td><td class="sd-val">12</td></tr>
+        <tr><td>Mecanismos de sanción por emisiones</td><td class="tj-val">Escasos / débiles</td><td class="sd-val">Multiescala: local, estatal, federal</td></tr>
+        <tr><td>Integración binacional</td><td class="tj-val">Bajo / reactivo</td><td class="sd-val">Medio / proactivo</td></tr>
+        <tr><td>Límite normativo PM₂.₅ (µg/m³ anual)</td><td class="tj-val">12 (NOM-025-SSA1-2021)</td><td class="sd-val">12 (EPA) · Meta OMS: 5</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card mt15">
+    <div class="chart-title">Presupuesto ambiental per cápita (USD)</div>
+    <div class="chart-sub">Indicador clave de la dimensión institucional</div>
+    <div class="chart-box"><canvas id="budgetChart"></canvas></div>
+  </div>
+</div>
+
+<!-- 06 METODOLOGÍA -->
+<div class="panel" id="panel-metodologia">
+  <div class="s-label">06 · Cómo funciona el IJAT</div>
+  <div class="s-title">Metodología de construcción</div>
+  <div class="s-desc">Índice compuesto derivado de la agregación de variables en tres dimensiones, con normalización 0–1 y ponderación equitativa.</div>
+
+  <div class="formula">
+    <strong>IJAT = (D1 · w₁) + (D2 · w₂) + (D3 · w₃)</strong><br>
+    <span style="font-size:.73rem;color:var(--text3);">donde w₁ = w₂ = w₃ = 0.33 (ponderación equitativa)</span>
+  </div>
+
+  <div class="grid4">
+    <div class="step-card"><div class="step-num">I</div><div class="step-name">Selección de dimensiones</div><div class="step-desc">Exposición a PM₂.₅, vulnerabilidad social y capacidad institucional como ejes teóricos.</div></div>
+    <div class="step-card"><div class="step-num">II</div><div class="step-name">Construcción de indicadores</div><div class="step-desc">Variables cuantitativas y cualitativas con anclas de referencia (OMS, EPA, NOM-025).</div></div>
+    <div class="step-card"><div class="step-num">III</div><div class="step-name">Normalización (0–1)</div><div class="step-desc">Homogeneización de unidades distintas bajo un mismo marco interpretativo.</div></div>
+    <div class="step-card"><div class="step-num">IV</div><div class="step-name">Ponderación y agregación</div><div class="step-desc">Suma ponderada con peso equitativo. Resultado: un número entre 0 y 1 por ciudad.</div></div>
+  </div>
+
+  <div class="card mt15">
+    <div style="font-family:var(--font-d);font-weight:700;font-size:.88rem;color:var(--text);margin-bottom:.55rem;">Índice Relativo Anual (Iₛₜ)</div>
+    <div style="font-size:.79rem;color:var(--text2);line-height:1.7;">Expresa el nivel anual de PM₂.₅ de cada estación como porcentaje de su propio promedio multianual (2022–2025). Evita comparar niveles absolutos entre redes con diferentes instrumentos.</div>
+    <div style="margin-top:.8rem;font-size:.78rem;background:var(--bg3);display:inline-block;padding:.33rem .8rem;border-radius:6px;color:var(--text2);">
+      Iₛₜ = (μₛₜ / μₛ̄) × 100 &nbsp;·&nbsp; <span style="color:var(--sd);">100% = nivel típico de la estación</span>
+    </div>
+  </div>
+
+  <div class="grid2 mt15">
+    <div class="conclu-card tj">
+      <div class="conclu-head tj">Tijuana · IJAT 0.30 · Injusticia Ambiental</div>
+      <div class="conclu-body">Mayor desventaja en D3 (0.18). Red de monitoreo insuficiente. No cumple NOM-025: promedio 24 µg/m³ vs límite de 12.</div>
+    </div>
+    <div class="conclu-card sd">
+      <div class="conclu-head sd">San Diego · IJAT 0.80 · Alta Justicia Ambiental</div>
+      <div class="conclu-body">Reducción gradual y sostenida. Mayor capacidad tecnológica y presupuestal. Persisten vulnerabilidades en periferia sur.</div>
+    </div>
+  </div>
+
+  <div class="card mt15" style="background:var(--bg3);border-color:var(--border2);">
+    <div style="font-size:.79rem;color:var(--text2);line-height:1.8;">
+      <span style="font-family:var(--font-d);font-weight:700;color:var(--text);">La brecha de 0.50 puntos</span> no se explica por un factor único, sino por la convergencia de déficits en las tres dimensiones: mayor exposición a PM₂.₅, mayor vulnerabilidad sociosanitaria y menor capacidad institucional. La cuenca atmosférica es compartida; los riesgos se experimentan de forma radicalmente distinta a cada lado de la frontera.
+    </div>
+  </div>
+</div>
+
+<div class="foot">
+  <div>Tesis doctoral · Escobedo De la Torre, J.M. (2026) · UABC · Facultad de Economía y Relaciones Internacionales</div>
+  <div>Datos: SINAICA, EPA-AQS, OMS, CDC-ATSDR, INECC, SEMARNAT, CalEPA (2022–2025)</div>
+</div>
+</div>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
+  animateBars();
+  initCharts();
+}
+
+function animateBars() {
+  setTimeout(() => {
+    document.querySelectorAll('.bar-fill[data-w]').forEach(el => { el.style.width = el.dataset.w; });
+  }, 50);
+}
+animateBars();
+
+Chart.defaults.color = '#7a96b8';
+Chart.defaults.font.family = 'DM Mono, monospace';
+Chart.defaults.font.size = 11;
+
+const TJ = 'rgba(26,95,168,';
+const SD = 'rgba(14,159,110,';
+let chartsInit = false;
+
+function initCharts() {
+  if (chartsInit) return;
+  chartsInit = true;
+
+  new Chart(document.getElementById('radarChart'), {
+    type: 'radar',
+    data: {
+      labels: ['D1 · Exposición', 'D2 · Vulnerabilidad', 'D3 · Cap. Institucional'],
+      datasets: [
+        { label: 'Tijuana', data: [0.32, 0.42, 0.18], backgroundColor: TJ+'0.10)', borderColor: TJ+'0.85)', borderWidth: 2, pointBackgroundColor: TJ+'1)', pointRadius: 4 },
+        { label: 'San Diego', data: [0.88, 0.82, 0.71], backgroundColor: SD+'0.09)', borderColor: SD+'0.85)', borderWidth: 2, pointBackgroundColor: SD+'1)', pointRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { r: { min: 0, max: 1, ticks: { stepSize: .25, backdropColor: 'transparent', color: '#7a96b8' }, grid: { color: 'rgba(26,95,168,.1)' }, pointLabels: { color: '#3a5272' }, angleLines: { color: 'rgba(26,95,168,.08)' } } },
+      plugins: { legend: { position: 'bottom', labels: { color: '#3a5272', padding: 16, usePointStyle: true } } }
+    }
+  });
+
+  new Chart(document.getElementById('pm25Chart'), {
+    type: 'bar',
+    data: {
+      labels: ['2022', '2023', '2024', '2025'],
+      datasets: [
+        { label: 'Tijuana', data: [28.4, 22.9, 18.5, 20.3], backgroundColor: TJ+'0.7)', borderColor: TJ+'1)', borderWidth: 1, borderRadius: 4 },
+        { label: 'San Diego', data: [9.6, 9.4, 9.0, 8.8], backgroundColor: SD+'0.65)', borderColor: SD+'1)', borderWidth: 1, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: 'rgba(26,95,168,.07)' }, border: { color: 'rgba(26,95,168,.1)' } },
+        y: { grid: { color: 'rgba(26,95,168,.07)' }, border: { color: 'rgba(26,95,168,.1)' }, title: { display: true, text: 'µg/m³', color: '#7a96b8' }, ticks: { color: '#7a96b8' } }
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: '#3a5272', padding: 14, usePointStyle: true } } }
+    }
+  });
+
+  new Chart(document.getElementById('growthChart'), {
+    type: 'bar',
+    data: {
+      labels: ['2022→2023', '2023→2024', '2024→2025'],
+      datasets: [
+        { label: 'Tijuana', data: [-19.5, -19.3, 9.9], backgroundColor: ctx => ctx.raw >= 0 ? 'rgba(192,54,44,.7)' : TJ+'0.7)', borderColor: ctx => ctx.raw >= 0 ? 'rgba(192,54,44,1)' : TJ+'1)', borderWidth: 1, borderRadius: 4 },
+        { label: 'San Diego', data: [-1.8, -4.7, -2.1], backgroundColor: SD+'0.65)', borderColor: SD+'1)', borderWidth: 1, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: 'rgba(26,95,168,.07)' } },
+        y: { grid: { color: 'rgba(26,95,168,.07)' }, ticks: { color: '#7a96b8', callback: v => v + '%' } }
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: '#3a5272', padding: 14, usePointStyle: true } } }
+    }
+  });
+
+  new Chart(document.getElementById('healthChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Muertes prematuras (anual)', 'Mortalidad resp. (por 100k)', 'Asma infantil (por 100k)'],
+      datasets: [
+        { label: 'Tijuana', data: [870, 34.1, 122], backgroundColor: TJ+'0.7)', borderColor: TJ+'1)', borderWidth: 1, borderRadius: 4 },
+        { label: 'San Diego', data: [430, 18.7, 56], backgroundColor: SD+'0.65)', borderColor: SD+'1)', borderWidth: 1, borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      scales: {
+        x: { grid: { color: 'rgba(26,95,168,.07)' }, ticks: { color: '#7a96b8' } },
+        y: { grid: { color: 'rgba(26,95,168,.07)' }, ticks: { color: '#3a5272' } }
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: '#3a5272', padding: 14, usePointStyle: true } } }
+    }
+  });
+
+  new Chart(document.getElementById('budgetChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Tijuana', 'San Diego'],
+      datasets: [{ label: 'USD per cápita', data: [2.60, 48.00], backgroundColor: [TJ+'0.7)', SD+'0.65)'], borderColor: [TJ+'1)', SD+'1)'], borderWidth: 1, borderRadius: 8 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: 'rgba(26,95,168,.07)' }, ticks: { color: '#3a5272' } },
+        y: { grid: { color: 'rgba(26,95,168,.07)' }, ticks: { color: '#7a96b8', callback: v => '$' + v } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+window.addEventListener('DOMContentLoaded', initCharts);
+</script>
+</body>
+</html>
